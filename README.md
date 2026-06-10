@@ -38,6 +38,7 @@ swift-a11y-linter <path> [options]
 | `--reporter <type>` | Output format: `cli`, `json`, `github`, `xcode`, `markdown`, `html` |
 | `--strict` | Exit with code 1 on any error-severity violation |
 | `--require-all` | Require accessibility identifiers on all elements |
+| `--use-script-input-files` | Lint files listed in the `SCRIPT_INPUT_FILE_*` env vars (Xcode build phase) |
 | `--verbose`, `-v` | Print detailed progress information |
 | `--version` | Print version |
 | `-h`, `--help` | Show help |
@@ -81,6 +82,16 @@ Use `--reporter github` to surface annotations directly on pull requests:
 - name: Accessibility lint
   run: swift run swift-a11y-linter Sources/ --strict --reporter github
 ```
+
+## Xcode build phase
+
+Add a "Run Script" build phase, list the Swift files to lint under **Input Files**, and pass `--use-script-input-files`. Xcode exposes those entries as the `SCRIPT_INPUT_FILE_COUNT` / `SCRIPT_INPUT_FILE_<n>` environment variables, which the linter reads instead of scanning a path — handy for linting only the files in the current build:
+
+```sh
+swift-a11y-linter --use-script-input-files --reporter xcode
+```
+
+With the `xcode` reporter, violations surface inline in the Xcode issue navigator.
 
 ## Testing
 

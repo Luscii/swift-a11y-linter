@@ -189,6 +189,14 @@ struct A11yLinterTests {
         #expect(CLI.scriptInputFiles(from: ["SCRIPT_INPUT_FILE_COUNT": "notanumber"]).isEmpty)
     }
 
+    @Test func scriptInputFilesNegativeCountReturnsEmpty() {
+        let env = [
+            "SCRIPT_INPUT_FILE_COUNT": "-1",
+            "SCRIPT_INPUT_FILE_0": "/tmp/A.swift"
+        ]
+        #expect(CLI.scriptInputFiles(from: env).isEmpty)
+    }
+
     @Test func scriptInputFilesSkipsMissingOrEmptyPaths() {
         let env = [
             "SCRIPT_INPUT_FILE_COUNT": "3",

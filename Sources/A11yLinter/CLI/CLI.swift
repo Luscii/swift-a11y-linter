@@ -102,7 +102,7 @@ enum CLI {
         from environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> [String] {
         guard let countString = environment["SCRIPT_INPUT_FILE_COUNT"],
-              let count = Int(countString) else { return [] }
+              let count = Int(countString), count > 0 else { return [] }
         var files: [String] = []
         for index in 0..<count {
             if let file = environment["SCRIPT_INPUT_FILE_\(index)"], !file.isEmpty {
