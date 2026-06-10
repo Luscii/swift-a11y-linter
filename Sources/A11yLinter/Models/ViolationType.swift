@@ -1,0 +1,17 @@
+enum ViolationType: String, Codable, CaseIterable {
+    case missingAccessibilityLabel = "MISSING_A11Y_LABEL"
+    case missingAccessibilityHint = "MISSING_A11Y_HINT"
+    case missingAccessibilityIdentifier = "MISSING_A11Y_IDENTIFIER"
+    case lowContrastRatio = "LOW_CONTRAST_RATIO"
+    case insufficientTouchTarget = "TOUCH_TARGET_TOO_SMALL"
+    case colorOnlyIndicator = "COLOR_ONLY_INDICATOR"
+    case missingImageDescription = "MISSING_IMAGE_DESCRIPTION"
+    case missingFormLabel = "MISSING_FORM_LABEL"
+    case autoplayWithoutControl = "AUTOPLAY_WITHOUT_CONTROL"
+    case missingVideoSubtitles = "MISSING_VIDEO_SUBTITLES"
+    case inaccessibleCustomControl = "INACCESSIBLE_CUSTOM_CONTROL"
+    case poorReadingOrder = "POOR_READING_ORDER"
+    case temporalMediaWithoutTranscript = "TEMPORAL_MEDIA_NO_TRANSCRIPT"
+    case identifierTooShort = "IDENTIFIER_TOO_SHORT"
+    case unexpectedAccessibilityHidden = "UNEXPECTED_A11Y_HIDDEN"
+}
