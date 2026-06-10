@@ -1,0 +1,63 @@
+# SwiftLint configuration for swift-a11y-linter
+# Run with the system/Homebrew binary — no SPM dependency required:
+#   swiftlint lint
+# Auto-fix the mechanical violations:
+#   swiftlint lint --fix
+
+# Only lint our own source — skip build artifacts and tooling.
+included:
+  - Sources
+  - Tests
+
+excluded:
+  - .build
+  - .swiftpm
+
+# --- Rule tuning -------------------------------------------------------------
+
+line_length:
+  warning: 140          # default 120 is tight for descriptive a11y messages
+  error: 200
+  ignores_urls: true
+  ignores_comments: true
+  ignores_interpolated_strings: true   # embedded default-config strings in LinterConfig
+
+identifier_name:
+  min_length:
+    warning: 1          # allow short locals like `v`, `eu` in reporters/tests
+  excluded:             # common throwaway names
+    - id
+    - to
+    - x
+    - y
+
+function_parameter_count:
+  warning: 6            # analyzers/reporters take several config flags
+  error: 8
+
+function_body_length:
+  warning: 80
+  error: 120
+
+cyclomatic_complexity:
+  warning: 15
+  error: 25
+
+# --- Opt-in rules worth having ----------------------------------------------
+
+opt_in_rules:
+  - empty_count
+  - first_where
+  - contains_over_first_not_nil
+  - last_where
+  - sorted_first_last
+  - toggle_bool
+  - redundant_nil_coalescing
+  - closure_spacing
+  - operator_usage_whitespace
+
+# Only run by `swiftlint analyze` (requires a compiler log), not plain `lint`.
+analyzer_rules:
+  - unused_import
+
+reporter: "xcode"
