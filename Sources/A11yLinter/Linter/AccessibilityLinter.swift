@@ -36,6 +36,15 @@ final class AccessibilityLinter {
         return report
     }
 
+    func lint(files: [String]) -> LintReport {
+        var report = LintReport()
+        for file in files where file.hasSuffix(".swift") {
+            lintIfApplicable(path: file, report: &report)
+        }
+        report.complianceScore = ComplianceScorer.score(for: report.violations, scoring: config.scoring)
+        return report
+    }
+
     private func isDirectory(_ path: String) -> Bool {
         var isDir: ObjCBool = false
         FileManager.default.fileExists(atPath: path, isDirectory: &isDir)

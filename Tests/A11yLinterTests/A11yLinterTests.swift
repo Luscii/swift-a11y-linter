@@ -173,6 +173,87 @@ struct A11yLinterTests {
         #expect(config.rule(for: .missingAccessibilityLabel) != nil)
     }
 
+    // MARK: - Script input files
+
+    @Test func scriptInputFilesParsesCountAndPaths() {
+        let env = [
+            "SCRIPT_INPUT_FILE_COUNT": "2",
+            "SCRIPT_INPUT_FILE_0": "/tmp/A.swift",
+            "SCRIPT_INPUT_FILE_1": "/tmp/B.swift"
+        ]
+        #expect(CLI.scriptInputFiles(from: env) == ["/tmp/A.swift", "/tmp/B.swift"])
+    }
+
+    @Test func scriptInputFilesMissingCountReturnsEmpty() {
+        #expect(CLI.scriptInputFiles(from: [:]).isEmpty)
+        #expect(CLI.scriptInputFiles(from: ["SCRIPT_INPUT_FILE_COUNT": "notanumber"]).isEmpty)
+    }
+
+    @Test func scriptInputFilesSkipsMissingOrEmptyPaths() {
+        let env = [
+            "SCRIPT_INPUT_FILE_COUNT": "3",
+            "SCRIPT_INPUT_FILE_0": "/tmp/A.swift",
+            "SCRIPT_INPUT_FILE_1": ""
+            // index 2 is absent entirely
+        ]
+        #expect(CLI.scriptInputFiles(from: env) == ["/tmp/A.swift"])
+    }
+
+    @Test func lintFilesScansOnlyProvidedFiles() throws {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let offending = dir.appendingPathComponent("Offending.swift")
+        try """
+        import SwiftUI
+        struct V: View {
+            var body: some View {
+                Image("logo")
+            }
+        }
+        """.write(to: offending, atomically: true, encoding: .utf8)
+
+        let clean = dir.appendingPathComponent("Clean.swift")
+        try """
+        import SwiftUI
+        struct C: View {
+            var body: some View {
+                Image("logo")
+                    .accessibilityHidden(true)
+            }
+        }
+        """.write(to: clean, atomically: true, encoding: .utf8)
+
+        var config = LinterConfig.default
+        config.ignoreFiles = []
+        let report = AccessibilityLinter(config: config).lint(files: [offending.path, clean.path])
+
+        #expect(report.filesScanned == 2)
+        #expect(report.violations.contains { $0.type == .missingImageDescription && $0.file == offending.path })
+        #expect(!report.violations.contains { $0.file == clean.path && $0.type == .missingImageDescription })
+    }
+
+    @Test func lintFilesSkipsNonSwiftAndNonUIFiles() throws {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let readme = dir.appendingPathComponent("README.md")
+        try "import SwiftUI".write(to: readme, atomically: true, encoding: .utf8)
+
+        let plainSwift = dir.appendingPathComponent("Plain.swift")
+        try "let answer = 42".write(to: plainSwift, atomically: true, encoding: .utf8)
+
+        var config = LinterConfig.default
+        config.ignoreFiles = []
+        let report = AccessibilityLinter(config: config).lint(files: [readme.path, plainSwift.path])
+
+        #expect(report.filesScanned == 0)
+    }
+
     // MARK: - Helpers
 
     private func lint(code: String, fileName: String = "Test.swift") throws -> [Violation] {

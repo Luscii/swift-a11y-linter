@@ -18,6 +18,7 @@ enum CLI {
         let strict = arguments.contains("--strict")
         let requireAll = arguments.contains("--require-all")
         let verbose = arguments.contains("--verbose") || arguments.contains("-v")
+        let useScriptInputFiles = arguments.contains("--use-script-input-files")
         let configPath = extractArgValue(arguments, flag: "--config") ?? "a11y.config.json"
         let reporterType = extractArgValue(arguments, flag: "--reporter") ?? "cli"
 
@@ -31,9 +32,15 @@ enum CLI {
         if strict { config.strict = true }
         if requireAll { config.requireAll = true }
 
+        let scriptInputs = useScriptInputFiles ? scriptInputFiles() : nil
+
         if verbose {
             print("🔍 swift-a11y-linter")
-            print("📁 Linting path: \(path)")
+            if let scriptInputs {
+                print("📁 Linting \(scriptInputs.count) file(s) from script input")
+            } else {
+                print("📁 Linting path: \(path)")
+            }
             print("⚙️  Config: \(configPath)")
             print("📝 Reporter: \(reporterType)")
             print("")
@@ -41,11 +48,12 @@ enum CLI {
 
         let showProgress = isatty(fileno(stderr)) != 0 && !verbose
 
-        let total = countSwiftFiles(at: path, config: config)
+        let total = scriptInputs?.count ?? countSwiftFiles(at: path, config: config)
         let label = total == 1 ? "file" : "files"
+        let source = scriptInputs != nil ? "from script input" : "in \(path)"
         let banner = """
         🔍 swift-a11y-linter starting...
-        📂 Discovered \(total) Swift \(label) in \(path)
+        📂 Discovered \(total) Swift \(label) \(source)
 
         """
         FileHandle.standardError.write(Data(banner.utf8))
@@ -55,7 +63,7 @@ enum CLI {
         let start = clock.now
 
         let spinner = showProgress ? Spinner.start(message: "Linting") : nil
-        let report = linter.lint(path: path)
+        let report = scriptInputs.map { linter.lint(files: $0) } ?? linter.lint(path: path)
         let elapsed = clock.now - start
         spinner?.stop()
 
@@ -88,6 +96,20 @@ enum CLI {
             count += 1
         }
         return count
+    }
+
+    static func scriptInputFiles(
+        from environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> [String] {
+        guard let countString = environment["SCRIPT_INPUT_FILE_COUNT"],
+              let count = Int(countString) else { return [] }
+        var files: [String] = []
+        for index in 0..<count {
+            if let file = environment["SCRIPT_INPUT_FILE_\(index)"], !file.isEmpty {
+                files.append(file)
+            }
+        }
+        return files
     }
 
     static func format(_ duration: Duration) -> String {
@@ -129,13 +151,14 @@ enum CLI {
             <path>                  Swift file or directory to scan (default: current directory)
 
         OPTIONS:
-            --config <path>         Path to JSON config file (default: a11y.config.json)
-            --reporter <type>       Output format: cli, json, github, xcode, markdown, html (default: cli)
-            --strict                Exit with code 1 on any error severity violation
-            --require-all           Require accessibility identifiers on all elements
-            --verbose, -v           Print detailed progress information
-            --version               Show version
-            -h, --help              Show this help
+            --config <path>            Path to JSON config file (default: a11y.config.json)
+            --reporter <type>          Output format: cli, json, github, xcode, markdown, html (default: cli)
+            --strict                   Exit with code 1 on any error severity violation
+            --require-all              Require accessibility identifiers on all elements
+            --use-script-input-files   Lint files from SCRIPT_INPUT_FILE_* env vars (Xcode build phase)
+            --verbose, -v              Print detailed progress information
+            --version                  Show version
+            -h, --help                 Show this help
 
         REPORTERS:
             cli       Pretty terminal output (default)
@@ -150,6 +173,7 @@ enum CLI {
             swift-a11y-linter Sources/ --strict --reporter github
             swift-a11y-linter MyView.swift --reporter html
             swift-a11y-linter . --config custom.json --reporter json
+            swift-a11y-linter --use-script-input-files --reporter xcode
         """)
     }
 }
