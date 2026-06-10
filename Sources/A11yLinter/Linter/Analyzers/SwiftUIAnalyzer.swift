@@ -1,6 +1,19 @@
- import Foundation
+import Foundation
 
 struct SwiftUIAnalyzer: Analyzer {
+    /// Per-line state shared by the individual element checks.
+    private struct Context {
+        let trimmed: String
+        let lines: [String]
+        let file: String
+        let lineNumber: Int
+        let config: LinterConfig
+
+        func hasModifier(_ modifier: String) -> Bool {
+            LineHelpers.hasAccessibilityModifier(startLine: lineNumber, lines: lines, modifier: modifier)
+        }
+    }
+
     func analyze(lines: [String], file: String, config: LinterConfig) -> [Violation] {
         var violations: [Violation] = []
 
@@ -11,53 +24,57 @@ struct SwiftUIAnalyzer: Analyzer {
                 continue
             }
 
-            let lineNumber = index + 1
-
-            checkImage(trimmed: trimmed, lines: lines, file: file, lineNumber: lineNumber, config: config, into: &violations)
-            checkTextField(trimmed: trimmed, lines: lines, file: file, lineNumber: lineNumber, config: config, into: &violations)
-            checkSwiftUIElements(trimmed: trimmed, lines: lines, file: file, lineNumber: lineNumber, config: config, into: &violations)
+            let ctx = Context(
+                trimmed: trimmed,
+                lines: lines,
+                file: file,
+                lineNumber: index + 1,
+                config: config
+            )
+            checkImage(ctx, into: &violations)
+            checkTextField(ctx, into: &violations)
+            checkSwiftUIElements(ctx, into: &violations)
         }
 
         return violations
     }
 
-    private func checkImage(trimmed: String, lines: [String], file: String, lineNumber: Int, config: LinterConfig, into violations: inout [Violation]) {
-        guard trimmed.contains("Image(") else { return }
-        guard config.isEnabled(.missingImageDescription) else { return }
+    private func checkImage(_ ctx: Context, into violations: inout [Violation]) {
+        guard ctx.trimmed.contains("Image(") else { return }
+        guard ctx.config.isEnabled(.missingImageDescription) else { return }
 
         // Decorative images explicitly opt out with an empty label
-        if trimmed.contains("decorative") { return }
+        if ctx.trimmed.contains("decorative") { return }
 
-        if !LineHelpers.hasAccessibilityModifier(startLine: lineNumber, lines: lines, modifier: "accessibilityLabel"),
-           !LineHelpers.hasAccessibilityModifier(startLine: lineNumber, lines: lines, modifier: "accessibilityHidden") {
+        if !ctx.hasModifier("accessibilityLabel"), !ctx.hasModifier("accessibilityHidden") {
             violations.append(.make(
                 type: .missingImageDescription,
-                file: file,
-                line: lineNumber,
-                column: LineHelpers.leadingColumn(trimmed),
+                file: ctx.file,
+                line: ctx.lineNumber,
+                column: LineHelpers.leadingColumn(ctx.trimmed),
                 message: "Image without accessibility description",
                 suggestion: "Add .accessibilityLabel(\"description\") or mark decorative with .accessibilityHidden(true)",
-                config: config
+                config: ctx.config
             ))
         }
     }
 
-    private func checkTextField(trimmed: String, lines: [String], file: String, lineNumber: Int, config: LinterConfig, into violations: inout [Violation]) {
-        guard trimmed.contains("TextField(") || trimmed.contains("SecureField(") else { return }
-        guard config.isEnabled(.missingFormLabel) else { return }
+    private func checkTextField(_ ctx: Context, into violations: inout [Violation]) {
+        guard ctx.trimmed.contains("TextField(") || ctx.trimmed.contains("SecureField(") else { return }
+        guard ctx.config.isEnabled(.missingFormLabel) else { return }
 
-        let hasLabel = LineHelpers.hasAccessibilityModifier(startLine: lineNumber, lines: lines, modifier: "accessibilityLabel")
-        let hasSurroundingText = hasNearbyText(startLine: lineNumber, lines: lines)
+        let hasLabel = ctx.hasModifier("accessibilityLabel")
+        let hasSurroundingText = hasNearbyText(startLine: ctx.lineNumber, lines: ctx.lines)
 
         if !hasLabel && !hasSurroundingText {
             violations.append(.make(
                 type: .missingFormLabel,
-                file: file,
-                line: lineNumber,
-                column: LineHelpers.leadingColumn(trimmed),
+                file: ctx.file,
+                line: ctx.lineNumber,
+                column: LineHelpers.leadingColumn(ctx.trimmed),
                 message: "TextField missing form label context",
                 suggestion: "Add .accessibilityLabel(\"…\") or wrap with a Text() label",
-                config: config
+                config: ctx.config
             ))
         }
     }
@@ -65,46 +82,20 @@ struct SwiftUIAnalyzer: Analyzer {
     private func hasNearbyText(startLine: Int, lines: [String]) -> Bool {
         let start = max(0, startLine - 4)
         let end = min(startLine + 1, lines.count)
-        for i in start..<end {
-            if lines[i].contains("Text(") { return true }
-        }
-        return false
+        return (start..<end).contains { lines[$0].contains("Text(") }
     }
 
-    private func checkSwiftUIElements(trimmed: String, lines: [String], file: String, lineNumber: Int, config: LinterConfig, into violations: inout [Violation]) {
+    private func checkSwiftUIElements(_ ctx: Context, into violations: inout [Violation]) {
         for element in SwiftUIElement.allCases {
-            checkElement(element.rawValue,
-                         elementMeta: element,
-                         trimmed: trimmed,
-                         lines: lines,
-                         file: file,
-                         lineNumber: lineNumber,
-                         config: config,
-                         into: &violations)
+            checkElement(element.rawValue, meta: element, ctx: ctx, into: &violations)
         }
 
-        for custom in config.customElements {
-            checkElement(custom,
-                         elementMeta: nil,
-                         trimmed: trimmed,
-                         lines: lines,
-                         file: file,
-                         lineNumber: lineNumber,
-                         config: config,
-                         into: &violations)
+        for custom in ctx.config.customElements {
+            checkElement(custom, meta: nil, ctx: ctx, into: &violations)
         }
     }
 
-    private func checkElement(
-        _ elementName: String,
-        elementMeta: SwiftUIElement?,
-        trimmed: String,
-        lines: [String],
-        file: String,
-        lineNumber: Int,
-        config: LinterConfig,
-        into violations: inout [Violation]
-    ) {
+    private func checkElement(_ elementName: String, meta: SwiftUIElement?, ctx: Context, into violations: inout [Violation]) {
         let patterns = [
             "\(elementName)\\s*\\(",
             "\(elementName)\\s*\\{",
@@ -113,91 +104,121 @@ struct SwiftUIAnalyzer: Analyzer {
 
         var matchRange: Range<String.Index>?
         for pattern in patterns {
-            if let range = trimmed.range(of: pattern, options: .regularExpression) {
+            if let range = ctx.trimmed.range(of: pattern, options: .regularExpression) {
                 matchRange = range
                 break
             }
         }
         guard let range = matchRange else { return }
-        let column = LineHelpers.column(of: range, in: trimmed)
+        let column = LineHelpers.column(of: range, in: ctx.trimmed)
 
-        let requiresIdentifier = config.requireAll || (elementMeta?.requiresIdentifier ?? false)
-        let requiresLabel = elementMeta?.requiresLabel ?? true
+        checkIdentifier(elementName, meta: meta, column: column, ctx: ctx, into: &violations)
+        checkButtonLabel(elementName, meta: meta, column: column, ctx: ctx, into: &violations)
+        checkHint(elementName, meta: meta, column: column, ctx: ctx, into: &violations)
+        checkHidden(elementName, column: column, ctx: ctx, into: &violations)
+    }
 
-        if requiresIdentifier && config.isEnabled(.missingAccessibilityIdentifier) {
-            let hasIdentifier = LineHelpers.hasAccessibilityModifier(startLine: lineNumber, lines: lines, modifier: "accessibilityIdentifier")
-            if !hasIdentifier {
-                let severity: Severity? = config.strict ? .error : nil
-                violations.append(.make(
-                    type: .missingAccessibilityIdentifier,
-                    file: file,
-                    line: lineNumber,
-                    column: column,
-                    message: "\(elementName) is missing accessibility identifier",
-                    suggestion: "Add .accessibilityIdentifier(\"uniqueId\")",
-                    config: config,
-                    severityOverride: severity
-                ))
-            } else if let id = LineHelpers.extractIdentifier(startLine: lineNumber, lines: lines),
-                      id.count < config.minIdentifierLength,
-                      config.isEnabled(.identifierTooShort) {
-                violations.append(.make(
-                    type: .identifierTooShort,
-                    file: file,
-                    line: lineNumber,
-                    column: column,
-                    message: "\(elementName) identifier '\(id)' is shorter than \(config.minIdentifierLength) characters",
-                    suggestion: "Use a longer, more descriptive identifier",
-                    config: config
-                ))
-            }
+    private func checkIdentifier(
+        _ elementName: String,
+        meta: SwiftUIElement?,
+        column: Int,
+        ctx: Context,
+        into violations: inout [Violation]
+    ) {
+        let requiresIdentifier = ctx.config.requireAll || (meta?.requiresIdentifier ?? false)
+        guard requiresIdentifier, ctx.config.isEnabled(.missingAccessibilityIdentifier) else { return }
+
+        if !ctx.hasModifier("accessibilityIdentifier") {
+            let severity: Severity? = ctx.config.strict ? .error : nil
+            violations.append(.make(
+                type: .missingAccessibilityIdentifier,
+                file: ctx.file,
+                line: ctx.lineNumber,
+                column: column,
+                message: "\(elementName) is missing accessibility identifier",
+                suggestion: "Add .accessibilityIdentifier(\"uniqueId\")",
+                config: ctx.config,
+                severityOverride: severity
+            ))
+        } else if let id = LineHelpers.extractIdentifier(startLine: ctx.lineNumber, lines: ctx.lines),
+                  id.count < ctx.config.minIdentifierLength,
+                  ctx.config.isEnabled(.identifierTooShort) {
+            violations.append(.make(
+                type: .identifierTooShort,
+                file: ctx.file,
+                line: ctx.lineNumber,
+                column: column,
+                message: "\(elementName) identifier '\(id)' is shorter than \(ctx.config.minIdentifierLength) characters",
+                suggestion: "Use a longer, more descriptive identifier",
+                config: ctx.config
+            ))
         }
+    }
 
-        if requiresLabel && config.isEnabled(.missingAccessibilityLabel) && elementName == "Button" {
-            // Buttons need explicit accessibility labels when they wrap a non-text child (e.g. an Image)
-            if !LineHelpers.hasAccessibilityModifier(startLine: lineNumber, lines: lines, modifier: "accessibilityLabel"),
-               buttonWrapsNonText(startLine: lineNumber, lines: lines) {
-                violations.append(.make(
-                    type: .missingAccessibilityLabel,
-                    file: file,
-                    line: lineNumber,
-                    column: column,
-                    message: "Button missing accessibilityLabel",
-                    suggestion: "Add .accessibilityLabel(\"action description\")",
-                    config: config
-                ))
-            }
-        }
+    private func checkButtonLabel(
+        _ elementName: String,
+        meta: SwiftUIElement?,
+        column: Int,
+        ctx: Context,
+        into violations: inout [Violation]
+    ) {
+        let requiresLabel = meta?.requiresLabel ?? true
+        guard requiresLabel, ctx.config.isEnabled(.missingAccessibilityLabel), elementName == "Button" else { return }
 
-        if config.isEnabled(.missingAccessibilityHint) {
-            let hasHint = LineHelpers.hasAccessibilityModifier(startLine: lineNumber, lines: lines, modifier: "accessibilityHint")
-            if !hasHint && (elementMeta?.requiresIdentifier ?? false) {
-                violations.append(.make(
-                    type: .missingAccessibilityHint,
-                    file: file,
-                    line: lineNumber,
-                    column: column,
-                    message: "\(elementName) could benefit from an accessibility hint",
-                    suggestion: "Add .accessibilityHint(\"Double tap to perform action\")",
-                    config: config
-                ))
-            }
-        }
+        // Buttons need explicit accessibility labels when they wrap a non-text child (e.g. an Image)
+        guard !ctx.hasModifier("accessibilityLabel"),
+              buttonWrapsNonText(startLine: ctx.lineNumber, lines: ctx.lines) else { return }
 
-        if config.isEnabled(.unexpectedAccessibilityHidden) {
-            let hasHidden = LineHelpers.hasAccessibilityModifier(startLine: lineNumber, lines: lines, modifier: "accessibilityHidden")
-            if hasHidden {
-                violations.append(.make(
-                    type: .unexpectedAccessibilityHidden,
-                    file: file,
-                    line: lineNumber,
-                    column: column,
-                    message: "\(elementName) is marked as accessibilityHidden - verify this is intentional",
-                    suggestion: "Confirm the element should be hidden from assistive technologies",
-                    config: config
-                ))
-            }
-        }
+        violations.append(.make(
+            type: .missingAccessibilityLabel,
+            file: ctx.file,
+            line: ctx.lineNumber,
+            column: column,
+            message: "Button missing accessibilityLabel",
+            suggestion: "Add .accessibilityLabel(\"action description\")",
+            config: ctx.config
+        ))
+    }
+
+    private func checkHint(
+        _ elementName: String,
+        meta: SwiftUIElement?,
+        column: Int,
+        ctx: Context,
+        into violations: inout [Violation]
+    ) {
+        guard ctx.config.isEnabled(.missingAccessibilityHint) else { return }
+        guard !ctx.hasModifier("accessibilityHint"), meta?.requiresIdentifier ?? false else { return }
+
+        violations.append(.make(
+            type: .missingAccessibilityHint,
+            file: ctx.file,
+            line: ctx.lineNumber,
+            column: column,
+            message: "\(elementName) could benefit from an accessibility hint",
+            suggestion: "Add .accessibilityHint(\"Double tap to perform action\")",
+            config: ctx.config
+        ))
+    }
+
+    private func checkHidden(
+        _ elementName: String,
+        column: Int,
+        ctx: Context,
+        into violations: inout [Violation]
+    ) {
+        guard ctx.config.isEnabled(.unexpectedAccessibilityHidden) else { return }
+        guard ctx.hasModifier("accessibilityHidden") else { return }
+
+        violations.append(.make(
+            type: .unexpectedAccessibilityHidden,
+            file: ctx.file,
+            line: ctx.lineNumber,
+            column: column,
+            message: "\(elementName) is marked as accessibilityHidden - verify this is intentional",
+            suggestion: "Confirm the element should be hidden from assistive technologies",
+            config: ctx.config
+        ))
     }
 
     private func buttonWrapsNonText(startLine: Int, lines: [String]) -> Bool {

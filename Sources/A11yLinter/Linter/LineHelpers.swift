@@ -90,6 +90,7 @@ enum LineHelpers {
 }
 
 extension Violation {
+    // swiftlint:disable function_parameter_count - deliberate builder; each field is distinct and required
     /// Builds a Violation using the rule's WCAG and EU metadata from config (with sensible fallbacks).
     static func make(
         type: ViolationType,
@@ -101,6 +102,7 @@ extension Violation {
         config: LinterConfig,
         severityOverride: Severity? = nil
     ) -> Violation {
+        // swiftlint:enable function_parameter_count
         let rule = config.rule(for: type)
         return Violation(
             file: file,

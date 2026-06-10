@@ -57,7 +57,7 @@ struct LinterConfig: Codable {
         version: String? = "1.0.0",
         rules: [String: RuleConfig],
         compliance: ComplianceConfig = ComplianceConfig(),
-        excludePaths: [String] = [".build", "Tests", "Examples", "Pods", ".git", "node_modules", ".swiftpm"],
+        excludePaths: [String] = LinterConfig.defaultExcludePaths,
         output: OutputConfig = OutputConfig(),
         scoring: ScoringConfig = ScoringConfig(),
         ignoreFiles: [String] = ["Preview", "Mock", "Test"],
@@ -84,7 +84,7 @@ struct LinterConfig: Codable {
         self.version = try container.decodeIfPresent(String.self, forKey: .version)
         self.rules = try container.decodeIfPresent([String: RuleConfig].self, forKey: .rules) ?? LinterConfig.defaultRules
         self.compliance = try container.decodeIfPresent(ComplianceConfig.self, forKey: .compliance) ?? ComplianceConfig()
-        self.excludePaths = try container.decodeIfPresent([String].self, forKey: .excludePaths) ?? [".build", "Tests", "Examples", "Pods", ".git", "node_modules", ".swiftpm"]
+        self.excludePaths = try container.decodeIfPresent([String].self, forKey: .excludePaths) ?? LinterConfig.defaultExcludePaths
         self.output = try container.decodeIfPresent(OutputConfig.self, forKey: .output) ?? OutputConfig()
         self.scoring = try container.decodeIfPresent(ScoringConfig.self, forKey: .scoring) ?? ScoringConfig()
         self.ignoreFiles = try container.decodeIfPresent([String].self, forKey: .ignoreFiles) ?? ["Preview", "Mock", "Test"]
@@ -110,30 +110,124 @@ struct LinterConfig: Codable {
         do {
             return try JSONDecoder().decode(LinterConfig.self, from: data)
         } catch {
-            FileHandle.standardError.write("⚠️  Failed to parse config at \(path): \(error). Using defaults.\n".data(using: .utf8) ?? Data())
+            let message = "⚠️  Failed to parse config at \(path): \(error). Using defaults.\n"
+            FileHandle.standardError.write(Data(message.utf8))
             return .default
         }
     }
+
+    static let defaultExcludePaths = [".build", "Tests", "Examples", "Pods", ".git", "node_modules", ".swiftpm"]
 
     static let `default` = LinterConfig(
         rules: LinterConfig.defaultRules
     )
 
     static let defaultRules: [String: RuleConfig] = [
-        ViolationType.missingAccessibilityLabel.rawValue: RuleConfig(severity: .error, wcagLevel: "A", wcagSection: "1.1.1", description: "Interactive elements must have accessibility labels", requiresEUCompliance: true),
-        ViolationType.missingImageDescription.rawValue: RuleConfig(severity: .error, wcagLevel: "A", wcagSection: "1.1.1", description: "All meaningful images must have descriptions", requiresEUCompliance: true),
-        ViolationType.missingFormLabel.rawValue: RuleConfig(severity: .error, wcagLevel: "A", wcagSection: "3.3.2", description: "Form controls must have associated labels", requiresEUCompliance: true),
-        ViolationType.missingAccessibilityHint.rawValue: RuleConfig(severity: .warning, wcagLevel: "AA", wcagSection: "3.2.1", description: "Complex actions should have hints explaining consequences", requiresEUCompliance: false),
-        ViolationType.insufficientTouchTarget.rawValue: RuleConfig(severity: .error, wcagLevel: "AAA", wcagSection: "2.5.5", description: "Touch targets must be at least 44×44 points", requiresEUCompliance: true, minimumSize: 44),
-        ViolationType.lowContrastRatio.rawValue: RuleConfig(severity: .error, wcagLevel: "AA", wcagSection: "1.4.3", description: "Text contrast must be at least 4.5:1 (AA) or 7:1 (AAA)", requiresEUCompliance: true, minimumRatioAA: 4.5, minimumRatioAAA: 7.0),
-        ViolationType.colorOnlyIndicator.rawValue: RuleConfig(severity: .warning, wcagLevel: "A", wcagSection: "1.4.1", description: "Color must not be the only way to convey information", requiresEUCompliance: true),
-        ViolationType.inaccessibleCustomControl.rawValue: RuleConfig(severity: .warning, wcagLevel: "A", wcagSection: "4.1.2", description: "Custom controls must have proper accessibility semantics", requiresEUCompliance: true),
-        ViolationType.missingVideoSubtitles.rawValue: RuleConfig(severity: .error, wcagLevel: "A", wcagSection: "1.2.2", description: "All videos must have captions or transcripts", requiresEUCompliance: true),
-        ViolationType.missingAccessibilityIdentifier.rawValue: RuleConfig(severity: .info, wcagLevel: "N/A", wcagSection: "N/A", description: "Elements should have accessibility identifiers for testing", requiresEUCompliance: false),
-        ViolationType.autoplayWithoutControl.rawValue: RuleConfig(severity: .warning, wcagLevel: "A", wcagSection: "2.2.2", description: "Autoplaying media must have pause/stop controls", requiresEUCompliance: true),
-        ViolationType.poorReadingOrder.rawValue: RuleConfig(severity: .warning, wcagLevel: "A", wcagSection: "2.4.3", description: "Focus order must be logical and intuitive", requiresEUCompliance: true),
-        ViolationType.temporalMediaWithoutTranscript.rawValue: RuleConfig(severity: .error, wcagLevel: "A", wcagSection: "1.2.3", description: "All audio and video must have transcripts", requiresEUCompliance: true),
-        ViolationType.identifierTooShort.rawValue: RuleConfig(severity: .warning, wcagLevel: "N/A", description: "Accessibility identifiers should be at least minIdentifierLength characters", requiresEUCompliance: false),
-        ViolationType.unexpectedAccessibilityHidden.rawValue: RuleConfig(severity: .warning, wcagLevel: "A", description: "Element is marked as accessibilityHidden - verify this is intentional", requiresEUCompliance: false)
+        ViolationType.missingAccessibilityLabel.rawValue: RuleConfig(
+            severity: .error,
+            wcagLevel: "A",
+            wcagSection: "1.1.1",
+            description: "Interactive elements must have accessibility labels",
+            requiresEUCompliance: true
+        ),
+        ViolationType.missingImageDescription.rawValue: RuleConfig(
+            severity: .error,
+            wcagLevel: "A",
+            wcagSection: "1.1.1",
+            description: "All meaningful images must have descriptions",
+            requiresEUCompliance: true
+        ),
+        ViolationType.missingFormLabel.rawValue: RuleConfig(
+            severity: .error,
+            wcagLevel: "A",
+            wcagSection: "3.3.2",
+            description: "Form controls must have associated labels",
+            requiresEUCompliance: true
+        ),
+        ViolationType.missingAccessibilityHint.rawValue: RuleConfig(
+            severity: .warning,
+            wcagLevel: "AA",
+            wcagSection: "3.2.1",
+            description: "Complex actions should have hints explaining consequences",
+            requiresEUCompliance: false
+        ),
+        ViolationType.insufficientTouchTarget.rawValue: RuleConfig(
+            severity: .error,
+            wcagLevel: "AAA",
+            wcagSection: "2.5.5",
+            description: "Touch targets must be at least 44×44 points",
+            requiresEUCompliance: true,
+            minimumSize: 44
+        ),
+        ViolationType.lowContrastRatio.rawValue: RuleConfig(
+            severity: .error,
+            wcagLevel: "AA",
+            wcagSection: "1.4.3",
+            description: "Text contrast must be at least 4.5:1 (AA) or 7:1 (AAA)",
+            requiresEUCompliance: true,
+            minimumRatioAA: 4.5,
+            minimumRatioAAA: 7.0
+        ),
+        ViolationType.colorOnlyIndicator.rawValue: RuleConfig(
+            severity: .warning,
+            wcagLevel: "A",
+            wcagSection: "1.4.1",
+            description: "Color must not be the only way to convey information",
+            requiresEUCompliance: true
+        ),
+        ViolationType.inaccessibleCustomControl.rawValue: RuleConfig(
+            severity: .warning,
+            wcagLevel: "A",
+            wcagSection: "4.1.2",
+            description: "Custom controls must have proper accessibility semantics",
+            requiresEUCompliance: true
+        ),
+        ViolationType.missingVideoSubtitles.rawValue: RuleConfig(
+            severity: .error,
+            wcagLevel: "A",
+            wcagSection: "1.2.2",
+            description: "All videos must have captions or transcripts",
+            requiresEUCompliance: true
+        ),
+        ViolationType.missingAccessibilityIdentifier.rawValue: RuleConfig(
+            severity: .info,
+            wcagLevel: "N/A",
+            wcagSection: "N/A",
+            description: "Elements should have accessibility identifiers for testing",
+            requiresEUCompliance: false
+        ),
+        ViolationType.autoplayWithoutControl.rawValue: RuleConfig(
+            severity: .warning,
+            wcagLevel: "A",
+            wcagSection: "2.2.2",
+            description: "Autoplaying media must have pause/stop controls",
+            requiresEUCompliance: true
+        ),
+        ViolationType.poorReadingOrder.rawValue: RuleConfig(
+            severity: .warning,
+            wcagLevel: "A",
+            wcagSection: "2.4.3",
+            description: "Focus order must be logical and intuitive",
+            requiresEUCompliance: true
+        ),
+        ViolationType.temporalMediaWithoutTranscript.rawValue: RuleConfig(
+            severity: .error,
+            wcagLevel: "A",
+            wcagSection: "1.2.3",
+            description: "All audio and video must have transcripts",
+            requiresEUCompliance: true
+        ),
+        ViolationType.identifierTooShort.rawValue: RuleConfig(
+            severity: .warning,
+            wcagLevel: "N/A",
+            description: "Accessibility identifiers should be at least minIdentifierLength characters",
+            requiresEUCompliance: false
+        ),
+        ViolationType.unexpectedAccessibilityHidden.rawValue: RuleConfig(
+            severity: .warning,
+            wcagLevel: "A",
+            description: "Element is marked as accessibilityHidden - verify this is intentional",
+            requiresEUCompliance: false
+        )
     ]
 }
