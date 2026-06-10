@@ -1,0 +1,167 @@
+{
+  "version": "1.0.0",
+  "name": "A11y Linter - EU Accessibility Compliance",
+  "description": "WCAG 2.1 Level AA compliance checker for Swift/SwiftUI",
+  "author": "A11y Community",
+  "license": "MIT",
+  
+  "rules": {
+    "MISSING_A11Y_LABEL": {
+      "enabled": true,
+      "severity": "error",
+      "wcagLevel": "A",
+      "wcagSection": "1.1.1",
+      "description": "Interactive elements must have accessibility labels",
+      "requiresEUCompliance": true,
+      "affectedUsers": ["blind", "screen_reader"]
+    },
+    "MISSING_IMAGE_DESCRIPTION": {
+      "enabled": true,
+      "severity": "error",
+      "wcagLevel": "A",
+      "wcagSection": "1.1.1",
+      "description": "All meaningful images must have descriptions",
+      "requiresEUCompliance": true,
+      "affectedUsers": ["blind", "low_vision"]
+    },
+    "MISSING_FORM_LABEL": {
+      "enabled": true,
+      "severity": "error",
+      "wcagLevel": "A",
+      "wcagSection": "3.3.2",
+      "description": "Form controls must have associated labels",
+      "requiresEUCompliance": true,
+      "affectedUsers": ["blind", "cognitive", "motor"]
+    },
+    "MISSING_A11Y_HINT": {
+      "enabled": true,
+      "severity": "warning",
+      "wcagLevel": "AA",
+      "wcagSection": "3.2.1",
+      "description": "Complex actions should have hints explaining consequences",
+      "requiresEUCompliance": false,
+      "affectedUsers": ["screen_reader", "cognitive"]
+    },
+    "TOUCH_TARGET_TOO_SMALL": {
+      "enabled": true,
+      "severity": "error",
+      "wcagLevel": "AAA",
+      "wcagSection": "2.5.5",
+      "description": "Touch targets must be at least 44×44 points",
+      "minimumSize": 44,
+      "requiresEUCompliance": true,
+      "affectedUsers": ["motor", "elderly", "low_vision"]
+    },
+    "LOW_CONTRAST_RATIO": {
+      "enabled": true,
+      "severity": "error",
+      "wcagLevel": "AA",
+      "wcagSection": "1.4.3",
+      "description": "Text contrast must be at least 4.5:1 (AA) or 7:1 (AAA)",
+      "minimumRatioAA": 4.5,
+      "minimumRatioAAA": 7.0,
+      "requiresEUCompliance": true,
+      "affectedUsers": ["low_vision", "colorblind"]
+    },
+    "COLOR_ONLY_INDICATOR": {
+      "enabled": true,
+      "severity": "warning",
+      "wcagLevel": "A",
+      "wcagSection": "1.4.1",
+      "description": "Color must not be the only way to convey information",
+      "requiresEUCompliance": true,
+      "affectedUsers": ["colorblind", "low_vision"]
+    },
+    "INACCESSIBLE_CUSTOM_CONTROL": {
+      "enabled": true,
+      "severity": "warning",
+      "wcagLevel": "A",
+      "wcagSection": "4.1.2",
+      "description": "Custom controls must have proper accessibility semantics",
+      "requiresEUCompliance": true,
+      "affectedUsers": ["blind", "screen_reader", "keyboard"]
+    },
+    "MISSING_VIDEO_SUBTITLES": {
+      "enabled": true,
+      "severity": "error",
+      "wcagLevel": "A",
+      "wcagSection": "1.2.2",
+      "description": "All videos must have captions or transcripts",
+      "requiresEUCompliance": true,
+      "affectedUsers": ["deaf", "hard_of_hearing"]
+    },
+    "MISSING_A11Y_IDENTIFIER": {
+      "enabled": true,
+      "severity": "info",
+      "wcagLevel": "N/A",
+      "wcagSection": "N/A",
+      "description": "Elements should have accessibility identifiers for testing",
+      "requiresEUCompliance": false,
+      "affectedUsers": ["qa_testers"]
+    },
+    "AUTOPLAY_WITHOUT_CONTROL": {
+      "enabled": true,
+      "severity": "warning",
+      "wcagLevel": "A",
+      "wcagSection": "2.2.2",
+      "description": "Autoplaying media must have pause/stop controls",
+      "requiresEUCompliance": true,
+      "affectedUsers": ["cognitive", "motor", "all"]
+    },
+    "POOR_READING_ORDER": {
+      "enabled": true,
+      "severity": "warning",
+      "wcagLevel": "A",
+      "wcagSection": "2.4.3",
+      "description": "Focus order must be logical and intuitive",
+      "requiresEUCompliance": true,
+      "affectedUsers": ["screen_reader", "keyboard", "motor"]
+    },
+    "TEMPORAL_MEDIA_NO_TRANSCRIPT": {
+      "enabled": true,
+      "severity": "error",
+      "wcagLevel": "A",
+      "wcagSection": "1.2.3",
+      "description": "All audio and video must have transcripts",
+      "requiresEUCompliance": true,
+      "affectedUsers": ["deaf", "hard_of_hearing", "cognitive"]
+    }
+  },
+
+  "compliance": {
+    "euRegulation": true,
+    "wcagLevel": "AA",
+    "minimumComplianceScore": 80,
+    "enforceCriticalRules": true,
+    "regulations": [
+      "EU Directive 2016/2102",
+      "EN 301 549",
+      "European Accessibility Act (2025+)",
+      "WCAG 2.1 Level AA"
+    ]
+  },
+
+  "excludePaths": [
+    ".build",
+    "Tests",
+    "Examples",
+    "Pods",
+    ".git",
+    "node_modules",
+    ".swiftpm"
+  ],
+
+  "output": {
+    "formats": ["text", "json", "markdown", "html"],
+    "defaultFormat": "text",
+    "includeSourceCode": true,
+    "includeSuggestions": true
+  },
+
+  "scoring": {
+    "errorPenalty": 10,
+    "warningPenalty": 3,
+    "infoPenalty": 1,
+    "euRequiredErrorWeight": 2.0
+  }
+}
