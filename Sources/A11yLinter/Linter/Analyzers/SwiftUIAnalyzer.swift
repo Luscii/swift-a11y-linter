@@ -96,10 +96,13 @@ struct SwiftUIAnalyzer: Analyzer {
     }
 
     private func checkElement(_ elementName: String, meta: SwiftUIElement?, ctx: Context, into violations: inout [Violation]) {
+        // Element name must be a standalone token, not a substring of a larger
+        // identifier (e.g. `Link` inside `handleDeepLink`) or a member call (e.g. `obj.Menu`).
+        let boundary = "(?<![A-Za-z0-9_.])"
         let patterns = [
-            "\(elementName)\\s*\\(",
-            "\(elementName)\\s*\\{",
-            "\(elementName)<"
+            "\(boundary)\(elementName)\\s*\\(",
+            "\(boundary)\(elementName)\\s*\\{",
+            "\(boundary)\(elementName)<"
         ]
 
         var matchRange: Range<String.Index>?

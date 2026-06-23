@@ -76,6 +76,48 @@ struct A11yLinterTests {
         #expect(!violations.contains { $0.type == .missingFormLabel })
     }
 
+    // MARK: - Element-name false positives (substring matching)
+
+    @Test func deepLinkMethodCallIsNotALink() throws {
+        let violations = try lint(code: """
+        import SwiftUI
+        struct Router {
+            func open(_ url: URL) {
+                URLSchemeManager.shared.handleDeepLink(url)
+            }
+        }
+        """)
+        #expect(!violations.contains { $0.type == .missingAccessibilityIdentifier })
+        #expect(!violations.contains { $0.type == .missingAccessibilityHint })
+    }
+
+    @Test func methodCallsContainingElementNamesAreNotFlagged() throws {
+        let violations = try lint(code: """
+        import SwiftUI
+        struct ViewModel {
+            func update() {
+                viewModel.toggleMenu()
+                store.resetSlider()
+                coordinator.showPicker()
+            }
+        }
+        """)
+        #expect(!violations.contains { $0.type == .missingAccessibilityIdentifier })
+        #expect(!violations.contains { $0.type == .missingAccessibilityHint })
+    }
+
+    @Test func realLinkStillRequiresIdentifier() throws {
+        let violations = try lint(code: """
+        import SwiftUI
+        struct V: View {
+            var body: some View {
+                Link("Home", destination: URL(string: "https://example.com")!)
+            }
+        }
+        """)
+        #expect(violations.contains { $0.type == .missingAccessibilityIdentifier })
+    }
+
     @Test func videoWithoutCaptions() throws {
         let violations = try lint(code: """
         import SwiftUI
