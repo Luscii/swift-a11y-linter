@@ -118,6 +118,54 @@ struct A11yLinterTests {
         #expect(violations.contains { $0.type == .missingAccessibilityIdentifier })
     }
 
+    @Test func customTextFieldViewIsNotAFormLabelViolation() throws {
+        let violations = try lint(code: """
+        import SwiftUI
+        struct V: View {
+            @State var pw = ""
+            var body: some View {
+                SecureTextField(text: $pw)
+                    .accessibilityIdentifier("passwordField")
+                ClearableEmailTextField(text: $pw)
+            }
+        }
+        """)
+        #expect(!violations.contains { $0.type == .missingFormLabel })
+    }
+
+    @Test func realTextFieldStillRequiresFormLabel() throws {
+        let violations = try lint(code: """
+        import SwiftUI
+        struct V: View {
+            @State var name = ""
+            var body: some View { TextField("name", text: $name) }
+        }
+        """)
+        #expect(violations.contains { $0.type == .missingFormLabel })
+    }
+
+    @Test func customImageViewIsNotAnImageDescriptionViolation() throws {
+        let violations = try lint(code: """
+        import SwiftUI
+        struct V: View {
+            var body: some View {
+                AvatarImage(user: user)
+            }
+        }
+        """)
+        #expect(!violations.contains { $0.type == .missingImageDescription })
+    }
+
+    @Test func realImageStillRequiresDescription() throws {
+        let violations = try lint(code: """
+        import SwiftUI
+        struct V: View {
+            var body: some View { Image("logo") }
+        }
+        """)
+        #expect(violations.contains { $0.type == .missingImageDescription })
+    }
+
     @Test func videoWithoutCaptions() throws {
         let violations = try lint(code: """
         import SwiftUI
