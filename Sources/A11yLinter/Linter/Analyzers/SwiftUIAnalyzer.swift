@@ -40,7 +40,7 @@ struct SwiftUIAnalyzer: Analyzer {
     }
 
     private func checkImage(_ ctx: Context, into violations: inout [Violation]) {
-        guard ctx.trimmed.contains("Image(") else { return }
+        guard LineHelpers.elementTokenRange("Image", in: ctx.trimmed) != nil else { return }
         guard ctx.config.isEnabled(.missingImageDescription) else { return }
 
         // Decorative images explicitly opt out with an empty label
@@ -60,7 +60,8 @@ struct SwiftUIAnalyzer: Analyzer {
     }
 
     private func checkTextField(_ ctx: Context, into violations: inout [Violation]) {
-        guard ctx.trimmed.contains("TextField(") || ctx.trimmed.contains("SecureField(") else { return }
+        guard LineHelpers.elementTokenRange("TextField", in: ctx.trimmed) != nil
+            || LineHelpers.elementTokenRange("SecureField", in: ctx.trimmed) != nil else { return }
         guard ctx.config.isEnabled(.missingFormLabel) else { return }
 
         let hasLabel = ctx.hasModifier("accessibilityLabel")
@@ -96,20 +97,9 @@ struct SwiftUIAnalyzer: Analyzer {
     }
 
     private func checkElement(_ elementName: String, meta: SwiftUIElement?, ctx: Context, into violations: inout [Violation]) {
-        let patterns = [
-            "\(elementName)\\s*\\(",
-            "\(elementName)\\s*\\{",
-            "\(elementName)<"
-        ]
-
-        var matchRange: Range<String.Index>?
-        for pattern in patterns {
-            if let range = ctx.trimmed.range(of: pattern, options: .regularExpression) {
-                matchRange = range
-                break
-            }
-        }
-        guard let range = matchRange else { return }
+        // Element name must be a standalone token, not a substring of a larger
+        // identifier (e.g. `Link` inside `handleDeepLink`) or a member call (e.g. `obj.Menu`).
+        guard let range = LineHelpers.elementTokenRange(elementName, in: ctx.trimmed) else { return }
         let column = LineHelpers.column(of: range, in: ctx.trimmed)
 
         checkIdentifier(elementName, meta: meta, column: column, ctx: ctx, into: &violations)

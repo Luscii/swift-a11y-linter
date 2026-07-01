@@ -1,6 +1,26 @@
 import Foundation
 
 enum LineHelpers {
+    /// Returns the range of `elementName` in `line` when it appears as a standalone
+    /// SwiftUI element token — i.e. followed by `(`, `{`, or `<`. The leading boundary
+    /// ensures the name is not a substring of a larger identifier (`Image` in
+    /// `AvatarImage`, `TextField` in `SecureTextField`) or a member access (`view.Image`).
+    /// Returns nil if no standalone match is found.
+    static func elementTokenRange(_ elementName: String, in line: String) -> Range<String.Index>? {
+        let boundary = "(?<![A-Za-z0-9_.])"
+        let patterns = [
+            "\(boundary)\(elementName)\\s*\\(",
+            "\(boundary)\(elementName)\\s*\\{",
+            "\(boundary)\(elementName)<"
+        ]
+        for pattern in patterns {
+            if let range = line.range(of: pattern, options: .regularExpression) {
+                return range
+            }
+        }
+        return nil
+    }
+
     /// Returns true if `modifier` is applied to the view starting at `startLine`.
     /// Tracks braces so we know when the view's body ends, then continues across
     /// chained modifier lines (those starting with `.`) which sit after the closing brace.
