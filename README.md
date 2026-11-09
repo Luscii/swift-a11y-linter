@@ -13,10 +13,22 @@ A SwiftUI / UIKit accessibility linter that checks Swift source code against WCA
 
 ## Requirements
 
-- macOS 13 or later
-- Swift 5.9 toolchain
+- macOS 13 or later, or Linux (x86_64)
+- Swift 6 toolchain (only needed to build from source)
 
-## Build
+## Install
+
+Prebuilt binaries are attached to every [GitHub release](https://github.com/Luscii/swift-a11y-linter/releases):
+
+```sh
+# Linux x86_64
+curl -L https://github.com/Luscii/swift-a11y-linter/releases/latest/download/swift-a11y-linter-linux-x86_64.tar.gz | tar xz
+
+# macOS (universal)
+curl -L https://github.com/Luscii/swift-a11y-linter/releases/latest/download/swift-a11y-linter-macos-universal.tar.gz | tar xz
+```
+
+## Build from source
 
 ```sh
 swift build -c release
@@ -80,8 +92,12 @@ Use `--reporter github` to surface annotations directly on pull requests:
 
 ```yaml
 - name: Accessibility lint
-  run: swift run swift-a11y-linter Sources/ --strict --reporter github
+  run: |
+    curl -L https://github.com/Luscii/swift-a11y-linter/releases/latest/download/swift-a11y-linter-linux-x86_64.tar.gz | tar xz
+    ./swift-a11y-linter Sources/ --strict --reporter github
 ```
+
+No Swift toolchain is required on the runner; the Linux binary is statically linked against the Swift runtime.
 
 ## Xcode build phase
 
