@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag to attach binaries to (e.g. 1.0.1)
+        description: Existing release git tag, without "v" prefix (e.g. 1.0.1)
         required: true
 
 permissions:
@@ -27,7 +27,7 @@ jobs:
       - run: swift test
       - run: tar czf swift-a11y-linter-linux-x86_64.tar.gz -C .build/release swift-a11y-linter
       - run: apt-get update -qq && apt-get install -y -qq gh
-      - run: gh release upload "$TAG" swift-a11y-linter-linux-x86_64.tar.gz --clobber
+      - run: gh release upload "$TAG" swift-a11y-linter-linux-x86_64.tar.gz --clobber --repo "$GITHUB_REPOSITORY"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -39,6 +39,6 @@ jobs:
           ref: ${{ env.TAG }}
       - run: swift build -c release --arch arm64 --arch x86_64
       - run: tar czf swift-a11y-linter-macos-universal.tar.gz -C "$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)" swift-a11y-linter
-      - run: gh release upload "$TAG" swift-a11y-linter-macos-universal.tar.gz --clobber
+      - run: gh release upload "$TAG" swift-a11y-linter-macos-universal.tar.gz --clobber --repo "$GITHUB_REPOSITORY"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
